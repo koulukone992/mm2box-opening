@@ -180,10 +180,11 @@ footer{margin-top:28px;color:var(--mute);font-size:.8rem}
 <div class="gate" id="gate">
   <div class="gbox" id="gateForm">
     <h1>Box <i>Opening</i></h1>
-    <p class="sub">Choose a username to play. It will appear on the leaderboard.</p>
+    <p class="sub" id="gateSub">Choose a username to play. It will appear on the leaderboard.</p>
     <input id="nameIn" maxlength="16" placeholder="Username" aria-label="Username" autofocus>
+    <input id="pwIn" type="password" maxlength="64" placeholder="Password" aria-label="Password" autocomplete="current-password" hidden>
     <p id="nameErr" aria-live="polite"></p>
-    <div class="row" style="margin:0"><button type="button" id="play">Play</button><button type="button" class="alt" id="cancel" hidden>Cancel</button></div>
+    <div class="row" style="margin:0"><button type="button" id="play">Play</button><button type="button" id="login" hidden>Log in</button><button type="button" class="alt" id="signup" hidden>Create account</button><button type="button" class="alt" id="cancel" hidden>Cancel</button></div>
   </div>
 </div>
 
@@ -278,7 +279,7 @@ function loadFor(name){
   }catch(e){}
   return {coins:1000, inv:{}, lastFree:0};
 }
-function save(){ try{ localStorage.setItem("mm2box:"+user.toLowerCase(), JSON.stringify(state)); }catch(e){} }
+function save(){ queueCloud(); try{ localStorage.setItem("mm2box:"+user.toLowerCase(), JSON.stringify(state)); }catch(e){} }
 
 function pick(box){
   const total = Object.values(box.w).reduce((a,b)=>a+b,0);
@@ -397,6 +398,41 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").hidden
 // Setup: console.firebase.google.com > create project > Build > Realtime Database > create (test mode),
 // then copy the database URL (no slash at the end) into the quotes below and set the rules from the setup notes.
 const FIREBASE_URL = "https://mm2-homma-default-rtdb.europe-west1.firebasedatabase.app";
+// Passwords: paste your Firebase "Web API key" (Project settings > General) here and turn on
+// Authentication > Sign-in method > Email/Password. Without it, accounts are name-only.
+const FIREBASE_KEY = "";
+const AUTH = !!(FIREBASE_URL && FIREBASE_KEY);
+const MAIL = "@mm2box.game";
+let sess = null;   // {idToken, refresh, exp, uid}
+async function idToken(){
+  if(!AUTH || !sess) return "";
+  if(!sess.idToken || Date.now() > sess.exp - 60000){
+    const r = await fetch("https://securetoken.googleapis.com/v1/token?key="+FIREBASE_KEY,{method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(sess.refresh)});
+    const j = await r.json(); if(!r.ok) throw new Error("session expired");
+    sess = {idToken:j.id_token, refresh:j.refresh_token, exp:Date.now()+(+j.expires_in)*1000, uid:j.user_id};
+    try{ localStorage.setItem("mm2auth",JSON.stringify({refresh:sess.refresh,name:user})); }catch(e){}
+  }
+  return sess.idToken;
+}
+async function dbf(path,opt){
+  const t = await idToken();
+  return fetch(FIREBASE_URL+path+".json"+(t?"?auth="+encodeURIComponent(t):""),opt);
+}
+async function authCall(kind,name,pw){
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${kind}?key=${FIREBASE_KEY}`,{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({email:name.toLowerCase()+MAIL,password:pw,returnSecureToken:true})});
+  const j = await r.json();
+  if(!r.ok) throw new Error((j.error&&j.error.message)||"error");
+  sess = {idToken:j.idToken, refresh:j.refreshToken, exp:Date.now()+(+j.expiresIn)*1000, uid:j.localId};
+}
+async function cloudLoad(){
+  const r = await dbf("/saves/"+sess.uid); if(!r.ok) throw new Error("HTTP "+r.status);
+  const o = await r.json(); return (o && typeof o.coins==="number") ? o : null;
+}
+let cloudT = null;
+function queueCloud(){ if(!AUTH || !sess || !state) return; clearTimeout(cloudT); cloudT = setTimeout(()=>{ dbf("/saves/"+sess.uid,{method:"PUT",body:JSON.stringify(state)}).catch(()=>{}); },2000); }
 const NAME_OK = /^[A-Za-z0-9_]{3,16}$/;
 const esc = t => String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -415,7 +451,7 @@ async function submitScore(){
   const rec = {name:user, score:worth(), found:found(), inv, t:Date.now()};
   const sig = rec.score+"|"+rec.found+"|"+JSON.stringify(inv); if(sig===lastSent) return; lastSent = sig;
   try{
-    if(FIREBASE_URL){ const r = await fetch(`${FIREBASE_URL}/leaderboard/${user.toLowerCase()}.json`,{method:"PUT",body:JSON.stringify(rec)}); if(!r.ok) throw new Error("HTTP "+r.status); }
+    if(FIREBASE_URL){ const r = await dbf(`/leaderboard/${user.toLowerCase()}`,{method:"PUT",body:JSON.stringify(rec)}); if(!r.ok) throw new Error("HTTP "+r.status); }
     else { const all = JSON.parse(localStorage.getItem("mm2lb")||"{}"); all[user.toLowerCase()] = rec; localStorage.setItem("mm2lb",JSON.stringify(all)); }
     loadBoard();
   }catch(e){ lastSent = ""; $("#lbStatus").textContent = "Score not saved: check the Firebase URL and rules ("+e.message+")."; }
@@ -429,7 +465,7 @@ function renderLB(){
 async function loadBoard(){
   let data = {};
   try{
-    if(FIREBASE_URL){ const r = await fetch(FIREBASE_URL+"/leaderboard.json"); if(!r.ok) throw new Error("HTTP "+r.status); data = (await r.json()) || {}; }
+    if(FIREBASE_URL){ const r = await dbf("/leaderboard"); if(!r.ok) throw new Error("HTTP "+r.status); data = (await r.json()) || {}; }
     else data = JSON.parse(localStorage.getItem("mm2lb")||"{}");
   }catch(e){ $("#lbStatus").textContent = "Could not load the leaderboard: check the Firebase URL and rules ("+e.message+")."; return; }
   const rows = Object.values(data).filter(r=>r && typeof r.name==="string" && typeof r.score==="number")
@@ -446,7 +482,7 @@ const itemOf = id => ITEMS.find(i=>i.id===id);
 function sane(o){ const r = {}; for(const k in (o||{})){ const n = Math.floor(+o[k]); if(itemOf(k) && n>0 && n<=99) r[k] = n; } return r; }
 const fmt = o => Object.entries(sane(o)).map(([k,v])=>`${v}× ${itemOf(k).name}`).join(", ") || "nothing";
 const tbtn = r => (FIREBASE_URL && r.name.toLowerCase()!==user.toLowerCase()) ? `<button class="alt sm" data-t="${esc(r.name)}">Trade</button>` : "<span></span>";
-const turl = id => `${FIREBASE_URL}/trades/${id}.json`;
+const turl = id => `/trades/${id}`;
 
 $("#lb").onclick = e=>{
   const b = e.target.closest("button[data-t]"); if(!b) return;
@@ -484,7 +520,7 @@ async function sendTrade(){
   for(const k in g) if((state.inv[k]||0) < g[k]) return err("You don't have enough of that item.");
   const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   try{
-    const r = await fetch(turl(id),{method:"PUT",body:JSON.stringify({from:user,to:tpeer.name,give:g,want:w,status:"pending",t:Date.now()})});
+    const r = await dbf(turl(id),{method:"PUT",body:JSON.stringify({from:user,to:tpeer.name,give:g,want:w,status:"pending",t:Date.now()})});
     if(!r.ok) throw 0;
   }catch(e){ return err("Could not send the offer. Check the Firebase rules."); }
   for(const k in g) state.inv[k] -= g[k];
@@ -495,13 +531,13 @@ async function settle(id,t){
   const back = sane(t.status==="accepted" ? t.want : t.give);
   for(const k in back) state.inv[k] = (state.inv[k]||0)+back[k];
   updateUI();
-  fetch(turl(id),{method:"DELETE"}).catch(()=>{});
+  dbf(turl(id),{method:"DELETE"}).catch(()=>{});
   $("#trStatus").textContent = t.status==="accepted" ? `${t.to} accepted your trade.` : `${t.to} did not accept. Your items are back.`;
 }
 async function loadTrades(){
   if(!user) return;
   if(!FIREBASE_URL){ $("#trStatus").textContent = "Trading needs the shared leaderboard."; return; }
-  let all; try{ all = (await (await fetch(FIREBASE_URL+"/trades.json")).json()) || {}; }catch(e){ return; }
+  let all; try{ all = (await (await dbf("/trades")).json()) || {}; }catch(e){ return; }
   const me = user.toLowerCase(); let html = "";
   for(const id in all){
     const t = all[id]; if(!t || typeof t.from!=="string" || typeof t.to!=="string") continue;
@@ -516,12 +552,12 @@ async function loadTrades(){
 $("#trList").onclick = async e=>{
   const b = e.target.closest("button[data-a]"); if(!b) return;
   const id = b.dataset.id, a = b.dataset.a;
-  let t; try{ t = await (await fetch(turl(id))).json(); }catch(err){ return; }
+  let t; try{ t = await (await dbf(turl(id))).json(); }catch(err){ return; }
   if(!t || t.status!=="pending"){ loadTrades(); return; }
   const want = sane(t.want), give = sane(t.give);
   if(a==="yes") for(const k in want) if((state.inv[k]||0) < want[k]){ $("#trStatus").textContent = "You no longer have the items they asked for."; return; }
   const status = a==="yes" ? "accepted" : a==="no" ? "declined" : "cancelled";
-  try{ const r = await fetch(turl(id),{method:"PATCH",body:JSON.stringify({status})}); if(!r.ok) throw 0; }
+  try{ const r = await dbf(turl(id),{method:"PATCH",body:JSON.stringify({status})}); if(!r.ok) throw 0; }
   catch(err){ $("#trStatus").textContent = "Could not reach the server."; return; }
   if(a==="yes"){
     for(const k in want) state.inv[k] -= want[k];
@@ -532,10 +568,10 @@ $("#trList").onclick = async e=>{
 };
 setInterval(loadTrades,10000);
 
-function start(name){
-  user = name;
+function start(name,cloud){
+  user = (cloud && cloud.name) || name;
   try{ localStorage.setItem("mm2user",name); }catch(e){}
-  state = loadFor(name); state.done = state.done || {}; lastSent = "";
+  state = cloud || loadFor(name); state.inv = state.inv || {}; state.name = user; state.done = state.done || {}; lastSent = "";
   $("#uname").textContent = name;
   $("#gate").hidden = true;
   $("#app").hidden = false;
@@ -550,16 +586,57 @@ function enter(){
   $("#nameErr").textContent = "";
   try{ start(n); }catch(err){ $("#nameErr").textContent = "Something went wrong: " + err.message; }
 }
+async function submitAuth(kind){
+  const n = $("#nameIn").value.trim(), pw = $("#pwIn").value, err = m=>{ $("#nameErr").textContent = m; };
+  if(!NAME_OK.test(n)) return err("Use 3 to 16 characters: letters, numbers and _ only.");
+  if(pw.length < 6) return err("Password must be at least 6 characters.");
+  err("One moment...");
+  try{
+    await authCall(kind==="up" ? "signUp" : "signInWithPassword", n, pw);
+    let o = null; if(kind!=="up"){ try{ o = await cloudLoad(); }catch(e){} }
+    try{ localStorage.setItem("mm2auth",JSON.stringify({refresh:sess.refresh,name:n})); }catch(e){}
+    $("#pwIn").value = ""; err(""); start(n,o);
+  }catch(e){
+    const m = e.message||"";
+    err(/EMAIL_EXISTS/.test(m) ? "That username is taken. Choose another, or log in if it's yours."
+      : /WEAK_PASSWORD/.test(m) ? "Password must be at least 6 characters."
+      : /TOO_MANY/.test(m) ? "Too many attempts. Try again in a few minutes."
+      : /OPERATION_NOT_ALLOWED/.test(m) ? "Email/password sign-in is not turned on in Firebase."
+      : /EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN/.test(m) ? "Wrong username or password."
+      : "Could not log in ("+m+").");
+  }
+}
+if(AUTH){
+  $("#pwIn").hidden = false; $("#login").hidden = false; $("#signup").hidden = false; $("#play").hidden = true;
+  $("#gateSub").textContent = "Log in, or create an account with a username and password. Your username appears on the leaderboard.";
+  $("#switch").textContent = "Log out";
+}
 $("#play").onclick = enter;
-$("#nameIn").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); enter(); } });
-$("#switch").onclick = ()=>{ if(spinning) return; $("#nameIn").value = user; $("#cancel").hidden = false; $("#gate").hidden = false; $("#nameIn").focus(); };
+$("#login").onclick = ()=>submitAuth("in");
+$("#signup").onclick = ()=>submitAuth("up");
+for(const id of ["#nameIn","#pwIn"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); AUTH ? submitAuth("in") : enter(); } });
+$("#switch").onclick = ()=>{ if(spinning) return; if(AUTH){ try{ localStorage.removeItem("mm2auth"); }catch(e){} location.reload(); return; } $("#nameIn").value = user; $("#cancel").hidden = false; $("#gate").hidden = false; $("#nameIn").focus(); };
 $("#cancel").onclick = ()=>{ $("#gate").hidden = true; };
 $("#lbRefresh").onclick = loadBoard;
 $("#lbSearch").oninput = renderLB;
 setInterval(()=>{ if(user) loadBoard(); },30000);
 
-let saved = ""; try{ saved = localStorage.getItem("mm2user")||""; }catch(e){}
-if(NAME_OK.test(saved)) start(saved); else $("#nameIn").focus();
+(async()=>{
+  if(AUTH){
+    try{
+      const a = JSON.parse(localStorage.getItem("mm2auth")||"null");
+      if(a && a.refresh && NAME_OK.test(a.name)){
+        user = a.name; sess = {refresh:a.refresh, exp:0};
+        await idToken(); let o = null; try{ o = await cloudLoad(); }catch(e){}
+        start(a.name,o); return;
+      }
+    }catch(e){ sess = null; user = ""; }
+  }else{
+    let saved = ""; try{ saved = localStorage.getItem("mm2user")||""; }catch(e){}
+    if(NAME_OK.test(saved)){ start(saved); return; }
+  }
+  $("#nameIn").focus();
+})();
 </script>
 </body>
 </html>
