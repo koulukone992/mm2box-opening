@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Box Opening – MM2 Fan Game</title>
+<style>
+:root{
+  --bg:#14101f; --panel:#1f1933; --line:#3a2f5c; --text:#f1ecff; --mute:#9d93bd;
+  --common:#8c93a3; --uncommon:#4fb86a; --rare:#3f8cff; --legendary:#b05cff; --godly:#ff9a2e; --ancient:#ff3b5c;
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#f3f0fa; --panel:#fff; --line:#d7cfee; --text:#1c1730; --mute:#6a6285}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",sans-serif;line-height:1.5}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+h1{font-family:Impact,"Arial Black",sans-serif;font-size:2.4rem;margin:0;letter-spacing:1px;font-weight:400}
+.sub{color:var(--mute);font-size:.9rem;margin:0}
+.coins{background:var(--panel);border:2px solid var(--godly);border-radius:999px;padding:8px 18px;font-weight:700;font-size:1.1rem}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:10px 16px;background:var(--rare);color:#fff;font-weight:700}
+button:hover:not(:disabled){filter:brightness(1.12)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--godly);outline-offset:2px}
+button.alt{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+.boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:22px}
+.box{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;text-align:left;color:var(--text);font-weight:400}
+.box.sel{border-color:var(--godly)}
+.box b{font-size:1.15rem}
+.box .price{color:var(--godly);font-weight:700}
+.box small{display:block;color:var(--mute)}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
+.reel{position:relative;overflow:hidden;height:130px;border-radius:8px;background:rgba(0,0,0,.18)}
+.reel::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:3px;background:var(--godly);transform:translateX(-50%);z-index:2}
+.strip{display:flex;height:100%;will-change:transform}
+.card{flex:0 0 120px;margin:8px 4px;border-radius:8px;border-bottom:5px solid var(--c);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px;font-size:.78rem}
+.card .ic{font-size:2rem;line-height:1;color:var(--c)}
+.card span{color:var(--c);font-weight:700}
+.row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
+#result{min-height:1.6em;font-weight:700}
+h2{font-size:1.2rem;margin:0 0 10px}
+.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.inv .card{margin:0;flex:none;height:120px;position:relative;background:var(--panel);border:1px solid var(--line);border-bottom:5px solid var(--c);cursor:pointer}
+.inv .card:hover{background:rgba(255,255,255,.06)}
+.inv .n{position:absolute;top:4px;right:6px;color:var(--mute)}
+.inv .v{color:var(--mute)}
+.empty{color:var(--mute)}
+footer{margin-top:30px;color:var(--mute);font-size:.8rem}
+@media (prefers-reduced-motion:reduce){.strip{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Box Opening</h1>
+      <p class="sub">Open boxes, collect knives and guns, sell what you don't need.</p>
+    </div>
+    <div class="coins" id="coins">0 coins</div>
+  </header>
+
+  <div class="boxes" id="boxes"></div>
+
+  <div class="stage">
+    <div class="reel"><div class="strip" id="strip"></div></div>
+    <div class="row">
+      <button id="open">Open box</button>
+      <button class="alt" id="free">Claim 250 free coins</button>
+      <span id="result" aria-live="polite">Pick a box and open it.</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <h2>Your collection <span class="sub" id="count"></span></h2>
+    <div class="inv" id="inv"></div>
+    <div class="row">
+      <button class="alt" id="sellDupes">Sell duplicates</button>
+      <button class="alt" id="reset">Reset progress</button>
+    </div>
+    <p class="sub">Click an item to sell one copy.</p>
+  </div>
+
+  <footer>Fan-made game, not affiliated with Roblox or Murder Mystery 2. Coins are fake and have no value.</footer>
+</div>
+
+<script>
+const R = {
+  common:{n:"Common",c:"#8c93a3",v:10},
+  uncommon:{n:"Uncommon",c:"#4fb86a",v:30},
+  rare:{n:"Rare",c:"#3f8cff",v:80},
+  legendary:{n:"Legendary",c:"#b05cff",v:250},
+  godly:{n:"Godly",c:"#ff9a2e",v:1000},
+  ancient:{n:"Ancient",c:"#ff3b5c",v:5000}
+};
+const K="🗡️", G="🔫";
+const ITEMS = [
+  // common
+  {id:"iceblade",name:"Iceblade",r:"common",i:K},{id:"slasher",name:"Slasher",r:"common",i:K},
+  {id:"cleaver",name:"Cleaver",r:"common",i:K},{id:"spider",name:"Spider",r:"common",i:K},
+  {id:"pistol",name:"Pistol",r:"common",i:G},
+  // uncommon
+  {id:"fang",name:"Fang",r:"uncommon",i:K},{id:"ripper",name:"Ripper",r:"uncommon",i:K},
+  {id:"shark",name:"Shark",r:"uncommon",i:G},
+  // rare
+  {id:"hallow",name:"Hallow Blade",r:"rare",i:K},{id:"frost",name:"Frostbite",r:"rare",i:K},
+  {id:"flames",name:"Flames",r:"rare",i:G},
+  // legendary
+  {id:"bloom",name:"Bloom",r:"legendary",i:K},{id:"nebula",name:"Nebula",r:"legendary",i:K},
+  {id:"prism",name:"Prism Gun",r:"legendary",i:G},
+  // godly
+  {id:"harvester",name:"Harvester",r:"godly",i:K},{id:"batwing",name:"Batwing",r:"godly",i:K},
+  {id:"seer",name:"Seer",r:"godly",i:K},{id:"luger",name:"Luger",r:"godly",i:G},
+  // ancient
+  {id:"vampire",name:"Vampire's Edge",r:"ancient",i:K},{id:"eternal",name:"Eternal",r:"ancient",i:K}
+];
+const BOXES = [
+  {id:"basic",name:"Basic Box",price:100,w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
+  {id:"rare",name:"Rare Box",price:500,w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
+  {id:"godly",name:"Godly Box",price:2500,w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
+];
+
+const $ = s => document.querySelector(s);
+let state = load();
+let selected = BOXES[0];
+let spinning = false;
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem("mm2box"));
+    if(s && typeof s.coins==="number") return s;
+  }catch(e){}
+  return {coins:1000, inv:{}, lastFree:0};
+}
+function save(){ try{ localStorage.setItem("mm2box", JSON.stringify(state)); }catch(e){} }
+
+function pick(box){
+  const total = Object.values(box.w).reduce((a,b)=>a+b,0);
+  let x = Math.random()*total, rar = "common";
+  for(const k in box.w){ x -= box.w[k]; if(x<=0){ rar = k; break; } }
+  const pool = ITEMS.filter(i=>i.r===rar);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function cardHTML(it){
+  return `<div class="card" style="--c:${R[it.r].c}"><div class="ic">${it.i}</div><b>${it.name}</b><span>${R[it.r].n}</span></div>`;
+}
+
+function renderBoxes(){
+  $("#boxes").innerHTML = BOXES.map(b=>{
+    const top = b.w.ancient>0 ? "Ancient" : "Godly";
+    return `<button class="box ${b===selected?"sel":""}" data-id="${b.id}">
+      <b>${b.name}</b> <span class="price">${b.price} coins</span>
+      <small>Best drop: ${top} (${(b.w.ancient>0?b.w.ancient:b.w.godly)}% chance)</small></button>`;
+  }).join("");
+  document.querySelectorAll(".box").forEach(el=>el.onclick=()=>{
+    if(spinning) return;
+    selected = BOXES.find(b=>b.id===el.dataset.id);
+    renderBoxes(); updateUI();
+  });
+}
+
+function renderInv(){
+  const ids = Object.keys(state.inv).filter(k=>state.inv[k]>0);
+  const order = Object.keys(R);
+  ids.sort((a,b)=>{
+    const A=ITEMS.find(i=>i.id===a), B=ITEMS.find(i=>i.id===b);
+    return order.indexOf(B.r)-order.indexOf(A.r);
+  });
+  $("#count").textContent = ids.length ? `(${ids.length} of ${ITEMS.length} found)` : "";
+  $("#inv").innerHTML = ids.length ? ids.map(id=>{
+    const it = ITEMS.find(i=>i.id===id);
+    return `<div class="card" data-id="${id}" style="--c:${R[it.r].c}" title="Sell for ${R[it.r].v} coins">
+      <span class="n">x${state.inv[id]}</span><div class="ic">${it.i}</div><b>${it.name}</b>
+      <span>${R[it.r].n}</span><small class="v">Sell ${R[it.r].v}</small></div>`;
+  }).join("") : `<p class="empty">Nothing yet. Open a box to start your collection.</p>`;
+  document.querySelectorAll("#inv .card").forEach(el=>el.onclick=()=>sell(el.dataset.id,1));
+}
+
+function updateUI(){
+  $("#coins").textContent = state.coins.toLocaleString() + " coins";
+  $("#open").textContent = `Open ${selected.name} (${selected.price})`;
+  $("#open").disabled = spinning || state.coins < selected.price;
+  $("#free").disabled = spinning;
+  renderInv(); save();
+}
+
+function sell(id, n){
+  if(spinning) return;
+  const it = ITEMS.find(i=>i.id===id);
+  const have = state.inv[id]||0;
+  n = Math.min(n, have);
+  if(n<=0) return;
+  state.inv[id] = have-n;
+  state.coins += R[it.r].v*n;
+  updateUI();
+}
+
+$("#sellDupes").onclick = ()=>{
+  if(spinning) return;
+  for(const id in state.inv){
+    if(state.inv[id]>1) sell(id, state.inv[id]-1);
+  }
+};
+$("#reset").onclick = ()=>{
+  if(confirm("Erase your coins and collection?")){
+    state = {coins:1000, inv:{}, lastFree:0};
+    $("#result").textContent = "Progress reset.";
+    updateUI();
+  }
+};
+$("#free").onclick = ()=>{
+  const wait = 60000 - (Date.now()-state.lastFree);
+  if(wait>0){ $("#result").textContent = `Free coins ready in ${Math.ceil(wait/1000)}s.`; return; }
+  state.coins += 250; state.lastFree = Date.now();
+  $("#result").textContent = "Claimed 250 coins. Next claim in 60s.";
+  updateUI();
+};
+
+$("#open").onclick = ()=>{
+  if(spinning || state.coins < selected.price) return;
+  spinning = true;
+  state.coins -= selected.price;
+  const win = pick(selected);
+  const WIN_AT = 38, TOTAL = 46;
+  const list = [];
+  for(let i=0;i<TOTAL;i++) list.push(i===WIN_AT ? win : pick(selected));
+  const strip = $("#strip");
+  strip.style.transition = "none";
+  strip.style.transform = "translateX(0)";
+  strip.innerHTML = list.map(cardHTML).join("");
+  $("#result").textContent = "Opening...";
+  updateUI();
+  const reelW = strip.parentElement.clientWidth;
+  const cardW = 128; // 120 + 2*4 margin
+  const jitter = (Math.random()-0.5)*80;
+  const target = WIN_AT*cardW + cardW/2 - reelW/2 + jitter;
+  void strip.offsetWidth;
+  const dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 5;
+  strip.style.transition = `transform ${dur}s cubic-bezier(.12,.7,.1,1)`;
+  strip.style.transform = `translateX(${-target}px)`;
+  setTimeout(()=>{
+    state.inv[win.id] = (state.inv[win.id]||0)+1;
+    spinning = false;
+    $("#result").innerHTML = `You got <span style="color:${R[win.r].c}">${win.name} (${R[win.r].n})</span>!`;
+    updateUI();
+  }, dur*1000 + 100);
+};
+
+renderBoxes(); updateUI();
+</script>
+</body>
+</html>
