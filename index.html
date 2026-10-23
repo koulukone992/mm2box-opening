@@ -44,6 +44,7 @@ button.alt{background:var(--raise);border:1px solid var(--line);color:var(--text
   background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--c) 32%,transparent),transparent 70%),var(--raise);
   border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-bottom:4px solid var(--c)}
 .card svg{width:54px;height:54px;color:var(--c);filter:drop-shadow(0 0 8px color-mix(in srgb,var(--c) 70%,transparent))}
+.card img{width:60px;height:60px;object-fit:contain;filter:drop-shadow(0 0 8px color-mix(in srgb,var(--c) 70%,transparent))}
 .card b{font-size:.9rem;margin-top:6px}
 .card em{font-style:normal;font-size:.75rem;color:var(--c);font-weight:600}
 .card.win{animation:pop .5s ease-out}
@@ -81,21 +82,36 @@ button.alt{background:var(--raise);border:1px solid var(--line);color:var(--text
 #modal[hidden]{display:none}
 .reveal{--c:var(--common);width:min(340px,100%);text-align:center;padding:28px 20px 22px;border-radius:18px;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--c) 38%,transparent),var(--panel) 70%);border:2px solid var(--c);box-shadow:0 0 60px color-mix(in srgb,var(--c) 45%,transparent)}
 .reveal svg{width:120px;height:120px;color:var(--c);filter:drop-shadow(0 0 18px var(--c))}
+.reveal img{width:130px;height:130px;object-fit:contain;filter:drop-shadow(0 0 18px var(--c))}
 .reveal h2{font-size:2.2rem;margin-top:6px}
 .reveal p{margin:0 0 18px;color:var(--c);font-weight:600}
 .reveal .row{justify-content:center;margin:0}
+.right{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.who{display:flex;gap:8px;align-items:center;font-weight:600}
+button.sm{padding:6px 12px;font-size:.85rem}
+.gate{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(700px 400px at 50% 0,#2a1530,var(--bg))}
+.gate[hidden]{display:none}
+.gate .gbox{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+.gate input{width:100%;margin:14px 0 6px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--text);font:inherit;font-size:1.05rem}
+.gate input:focus{outline:2px solid var(--gold)}
+#nameErr{color:#ff6b7d;min-height:1.3em;font-size:.9rem;margin:0 0 10px}
+.lr{display:grid;grid-template-columns:36px 1fr auto 96px;gap:10px;align-items:center;padding:9px 12px;border-radius:8px}
+.lr:nth-child(odd){background:var(--raise)}
+.lr.me{outline:2px solid var(--gold)}
+.lr span:last-child{text-align:right}
+.lr:nth-child(-n+3)>span:first-child{color:var(--gold);font-weight:600}
 footer{margin-top:28px;color:var(--mute);font-size:.8rem}
 @media (max-width:520px){h1{font-size:2.3rem}.hint{margin-left:0}}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="app" hidden>
   <header>
     <div>
       <h1>Box <i>Opening</i></h1>
       <p class="sub">Open crates, build your knife and gun collection.</p>
     </div>
-    <div class="coins"><span class="coin"></span><span id="coins">0</span></div>
+    <div class="right"><div class="who"><span id="uname"></span><button class="alt sm" id="switch">Switch</button></div><div class="coins"><span class="coin"></span><span id="coins">0</span></div></div>
   </header>
 
   <section class="panel">
@@ -123,11 +139,28 @@ footer{margin-top:28px;color:var(--mute);font-size:.8rem}
     </div>
   </section>
 
+  <section class="panel">
+    <div class="head"><h2>Leaderboard</h2><span class="sub" id="lbStatus"></span></div>
+    <p class="sub">Ranked by net worth: your coins plus the sell value of your weapons.</p>
+    <div class="lb" id="lb"></div>
+    <div class="row"><button class="alt" id="lbRefresh">Refresh</button></div>
+  </section>
+
   <footer>Fan-made game, not affiliated with Roblox or Murder Mystery 2. Coins are fake and have no value.</footer>
 </div>
 
 <div id="modal" hidden>
   <div class="reveal" id="reveal" role="dialog" aria-live="polite"></div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="gbox" id="gateForm">
+    <h1>Box <i>Opening</i></h1>
+    <p class="sub">Choose a username to play. It will appear on the leaderboard.</p>
+    <input id="nameIn" maxlength="16" placeholder="Username" aria-label="Username" autofocus>
+    <p id="nameErr" aria-live="polite"></p>
+    <div class="row" style="margin:0"><button type="button" id="play">Play</button><button type="button" class="alt" id="cancel" hidden>Cancel</button></div>
+  </div>
 </div>
 
 <script>
@@ -143,43 +176,94 @@ const ICON = {
   k:'<svg viewBox="0 0 64 64" fill="currentColor"><g transform="rotate(45 32 32)"><path d="M32 2l7 11v26H25V13z"/><rect x="21" y="39" width="22" height="5" rx="1.5" opacity=".75"/><rect x="28" y="44" width="8" height="18" rx="2" opacity=".5"/></g></svg>',
   g:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M4 16h50v12H38l-4 8v20H20V34h-4l-3-6H4z"/><rect x="42" y="19" width="8" height="3" opacity=".5"/></svg>'
 };
-const ITEMS = [
-  {id:"iceblade",name:"Iceblade",r:"common",i:"k"},{id:"slasher",name:"Slasher",r:"common",i:"k"},
-  {id:"cleaver",name:"Cleaver",r:"common",i:"k"},{id:"spider",name:"Spider",r:"common",i:"k"},
-  {id:"pistol",name:"Pistol",r:"common",i:"g"},
-  {id:"fang",name:"Fang",r:"uncommon",i:"k"},{id:"ripper",name:"Ripper",r:"uncommon",i:"k"},
-  {id:"shark",name:"Shark",r:"uncommon",i:"g"},
-  {id:"hallow",name:"Hallow Blade",r:"rare",i:"k"},{id:"frost",name:"Frostbite",r:"rare",i:"k"},
-  {id:"flames",name:"Flames",r:"rare",i:"g"},
-  {id:"bloom",name:"Bloom",r:"legendary",i:"k"},{id:"nebula",name:"Nebula",r:"legendary",i:"k"},
-  {id:"prism",name:"Prism Gun",r:"legendary",i:"g"},
-  {id:"harvester",name:"Harvester",r:"godly",i:"k"},{id:"batwing",name:"Batwing",r:"godly",i:"k"},
-  {id:"seer",name:"Seer",r:"godly",i:"k"},{id:"luger",name:"Luger",r:"godly",i:"g"},
-  {id:"vampire",name:"Vampire’s Edge",r:"ancient",i:"k"},{id:"eternal",name:"Eternal",r:"ancient",i:"k"}
-];
+const mk=(r,i,names)=>names.map(n=>({id:n.toLowerCase().replace(/[^a-z0-9]/g,""),name:n,r,i}));
+// Weapon images: put PNGs in an "images" folder named after the id (e.g. images/harvester.png).
+// Any weapon without an image falls back to the drawn icon.
 const BOXES = [
-  {id:"basic",name:"Basic Crate",price:50,c:"#6b7a99",w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
-  {id:"rare",name:"Rare Crate",price:175,c:"#8a5cff",w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
-  {id:"godly",name:"Godly Crate",price:600,c:"#ff9a2e",w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
+  {id:"rookie",name:"Rookie Crate",price:50,c:"#6b7a99",w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0},
+   items:[...mk("common","k",["Iceblade","Slasher","Cleaver"]),...mk("common","g",["Pistol"]),
+     ...mk("uncommon","k",["Fang","Ripper"]),...mk("uncommon","g",["Shark"]),
+     ...mk("rare","k",["Spider","Frostbite"]),...mk("rare","g",["Flames"]),
+     ...mk("legendary","k",["Bloom"]),...mk("legendary","g",["Prism Gun"]),
+     ...mk("godly","k",["Harvester"])]},
+  {id:"haunted",name:"Haunted Crate",price:125,c:"#8a5cff",w:{common:38,uncommon:30,rare:20,legendary:8.5,godly:3,ancient:0.5},
+   items:[...mk("common","k",["Pumpkin Cutter"]),...mk("common","g",["Bone Pistol"]),
+     ...mk("uncommon","k",["Hallow Blade","Cobweb"]),...mk("uncommon","g",["Ghost Gun"]),
+     ...mk("rare","k",["Reaper","Vampire Fang"]),...mk("rare","g",["Cursed Revolver"]),
+     ...mk("legendary","k",["Nebula","Eclipse"]),...mk("legendary","g",["Phantom"]),
+     ...mk("godly","k",["Batwing","Seer"]),...mk("godly","g",["Luger"]),
+     ...mk("ancient","k",["Vampire’s Edge"])]},
+  {id:"vault",name:"Godly Vault",price:250,c:"#ff9a2e",w:{common:22,uncommon:21,rare:20,legendary:19,godly:15,ancient:3},
+   items:[...mk("common","k",["Plasma Knife"]),...mk("common","g",["Laser Pistol"]),
+     ...mk("uncommon","k",["Chroma Dagger"]),...mk("uncommon","g",["Sunset"]),
+     ...mk("rare","k",["Gingerblade","Heartblade"]),...mk("rare","g",["Blaster"]),
+     ...mk("legendary","k",["Icebreaker","Gemstone"]),...mk("legendary","g",["Corrupt"]),
+     ...mk("godly","k",["Icewing","Eggblade"]),...mk("godly","g",["Chroma Luger","Gingerscope"]),
+     ...mk("ancient","k",["Eternal","Chroma Heartblade"])]}
 ];
+const ITEMS = BOXES.flatMap(b=>b.items);
+const KN={straight:"M32 2l6 12v24H26V14z",curved:"M30 2Q46 14 38 38H26Q32 20 30 2z",dagger:"M32 2l4 10-1 26h-6l-1-26z",
+ cleaver:"M23 8h20v30H23z",serrated:"M32 2l6 10-3 4 3 4-3 4 3 4-3 4 3 4v2H26V12z",scythe:"M28 38V6Q46 0 50 20Q42 12 34 14v24z",
+ wing:"M32 2l4 10 16-6-8 16-4-2-2 18H26l-2-18-4 2-8-16 16 6z",shard:"M32 0l8 16-4 4 6 14-10 6-10-6 6-14-4-4z",thin:"M32 0l3 10v30h-6V10z"};
+const GN={pistol:"M6 18h48v12H38l-4 9v17H21V30h-4l-4-1H6z",revolver:"M8 20h40l8 4v6H40l-4 8v18H22V30h-4l-10-1z",
+ blaster:"M4 22h30l8-6h14v20H42l-6 4v14H22V36H4z",luger:"M4 20h52v9H40l8 26H38L28 29H4z",
+ scoped:"M6 18h48v12H38l-4 9v17H21V30h-4l-4-1H6z",ray:"M6 20h28q8-6 16 0h8v12H44q-8 6-16 0H6zM24 32h12l-2 22H22z"};
+// shape, main colour, accent colour, extra
+const SPEC={iceblade:"shard #8fe3ff #2a6fa8",slasher:"serrated #c9ced6 #7a1f1f stripe",cleaver:"cleaver #aeb4bd #6b4a2b ring",
+ fang:"curved #f2ecd8 #3a3a3a",ripper:"serrated #9aa3ad #c0262d dots",spider:"wing #26262e #e23b3b gem",
+ frostbite:"shard #d9f6ff #5aa8ff gem",bloom:"curved #ff9ad5 #2f9e57 dots",harvester:"scythe #7a5cff #2b2140 gem",
+ pumpkincutter:"straight #ff8a1f #4a2a10 dots",hallowblade:"dagger #c8a6ff #ff8a1f ring",cobweb:"thin #e8e8ee #5a5a66 dots",
+ reaper:"scythe #cfd3da #15121c stripe",vampirefang:"curved #ff5f6e #2a0d12 gem",nebula:"straight #6c4dff #ff6ad5 dots",
+ eclipse:"curved #2a3354 #ffd24a gem",batwing:"wing #4b3a73 #ff8a1f ring",seer:"dagger #5ee6d4 #233a5a gem",
+ vampiresedge:"straight #e0314b #1a0a10 heart",chromadagger:"dagger #e6edf5 #6aa0ff stripe",gingerblade:"scythe #e8452c #f6f6f6 stripe",
+ heartblade:"straight #ff5e9c #7a1d44 heart",icebreaker:"shard #9be7ff #1b4f7a ring",gemstone:"dagger #4de1b0 #16755a gem",
+ icewing:"wing #aeeaff #2b78c4 gem",eggblade:"cleaver #ffe27a #e86aa8 dots",eternal:"thin #ffd24a #7a3fd0 gem",
+ chromaheartblade:"straight #7ae0ff #ff4fa0 heart",
+ pistol:"pistol #7d8795 #3b3f48",shark:"blaster #4a90c8 #1d3a5a",flames:"pistol #ff6a1f #ffd24a",prismgun:"ray #c07bff #4de1ff",
+ bonepistol:"revolver #efe6d0 #8a7a5a",ghostgun:"ray #a9f0e0 #5a7a8a",cursedrevolver:"revolver #7a2fb0 #1c0f2a",
+ phantom:"luger #59607a #b88cff",luger:"luger #9aa3b0 #4a3a2a",sunset:"scoped #ff8a4a #ffd24a",blaster:"blaster #d8dde6 #3a7bd0",
+ corrupt:"ray #3a1a44 #ff3b5c",chromaluger:"luger #dff6ff #ff4fa0",plasmaknife:"straight #6df5a5 #1c5a45 dots",laserpistol:"ray #ff6a8a #4a1a2a",gingerscope:"scoped #e8452c #f6f6f6"};
+const art = it => {
+  const [sh,c1,c2,ex=""] = (SPEC[it.id]||"").split(" ");
+  if(!c1) return ICON[it.i];
+  const edge = ' stroke="#fff" stroke-opacity=".55" stroke-width="1"';
+  if(it.i==="k"){
+    const X = {gem:`<circle cx="32" cy="24" r="3.5" fill="${c2}"/>`,
+      dots:[14,24,32].map(y=>`<circle cx="32" cy="${y}" r="1.8" fill="${c2}"/>`).join(""),
+      ring:`<rect x="27" y="50" width="10" height="3" fill="${c1}"/>`,
+      stripe:`<path d="M28 46l8 4M28 52l8 4" stroke="${c1}" stroke-width="2"/>`,
+      heart:`<path d="M32 48l-7-7a4 4 0 0 1 7-4a4 4 0 0 1 7 4z" fill="${c2}"/>`}[ex]||"";
+    return `<svg viewBox="0 0 64 64"><g transform="rotate(45 32 32)"><path d="${KN[sh]}" fill="${c1}"${edge}/>
+      <rect x="19" y="38" width="26" height="5" rx="2" fill="${c2}"/><rect x="28" y="43" width="8" height="19" rx="3" fill="${c2}" opacity=".85"/>${X}</g></svg>`;
+  }
+  const X = {revolver:`<circle cx="30" cy="24" r="8" fill="${c2}"/>`,scoped:`<rect x="12" y="9" width="30" height="6" rx="3" fill="${c2}"/>`,
+    ray:`<rect x="14" y="20" width="4" height="12" fill="${c2}"/><rect x="24" y="19" width="4" height="14" fill="${c2}"/>`}[sh]
+    || `<rect x="10" y="23" width="26" height="3" fill="${c2}"/>`;
+  return `<svg viewBox="0 0 64 64"><path d="${GN[sh]}" fill="${c1}"${edge}/>${X}</svg>`;
+};
 
 const $ = s => document.querySelector(s);
-let state = load(), selected = BOXES[0], spinning = false;
+let state = null, user = "", selected = BOXES[0], spinning = false;
 
-function load(){
-  try{ const s = JSON.parse(localStorage.getItem("mm2box")); if(s && typeof s.coins==="number") return s; }catch(e){}
+function loadFor(name){
+  try{
+    let raw = localStorage.getItem("mm2box:"+name.toLowerCase());
+    if(!raw && !localStorage.getItem("mm2mig")){ raw = localStorage.getItem("mm2box"); localStorage.setItem("mm2mig","1"); }
+    const o = JSON.parse(raw);
+    if(o && typeof o.coins==="number") return o;
+  }catch(e){}
   return {coins:1000, inv:{}, lastFree:0};
 }
-function save(){ try{ localStorage.setItem("mm2box", JSON.stringify(state)); }catch(e){} }
+function save(){ try{ localStorage.setItem("mm2box:"+user.toLowerCase(), JSON.stringify(state)); }catch(e){} }
 
 function pick(box){
   const total = Object.values(box.w).reduce((a,b)=>a+b,0);
   let x = Math.random()*total, rar = "common";
   for(const k in box.w){ if(box.w[k]<=0) continue; rar = k; x -= box.w[k]; if(x<=0) break; }
-  const pool = ITEMS.filter(i=>i.r===rar);
+  const pool = box.items.filter(i=>i.r===rar);
   return pool[Math.floor(Math.random()*pool.length)];
 }
-const card = (it,cls="") => `<div class="card ${cls}" style="--c:${R[it.r].c}">${ICON[it.i]}<b>${it.name}</b><em>${R[it.r].n}</em></div>`;
+const card = (it,cls="") => `<div class="card ${cls}" style="--c:${R[it.r].c}">${art(it)}<b>${it.name}</b><em>${R[it.r].n}</em></div>`;
 
 function renderBoxes(){
   $("#boxes").innerHTML = BOXES.map(b=>{
@@ -205,7 +289,7 @@ function renderInv(){
   $("#inv").innerHTML = ids.length ? ids.map(id=>{
     const it = ITEMS.find(i=>i.id===id);
     return `<div class="card" data-id="${id}" style="--c:${R[it.r].c}" title="Sell one for ${R[it.r].v} coins">
-      <span class="n">x${state.inv[id]}</span>${ICON[it.i]}<b>${it.name}</b><em>${R[it.r].n}</em><small>Sell ${R[it.r].v}</small></div>`;
+      <span class="n">x${state.inv[id]}</span>${art(it)}<b>${it.name}</b><em>${R[it.r].n}</em><small>Sell ${R[it.r].v}</small></div>`;
   }).join("") : `<p class="empty">Nothing yet. Open a crate to start your collection.</p>`;
   document.querySelectorAll("#inv .card").forEach(el=>el.onclick=()=>sell(el.dataset.id,1));
 }
@@ -214,12 +298,13 @@ function updateUI(){
   $("#coins").textContent = state.coins.toLocaleString();
   $("#open").textContent = `Open ${selected.name} · ${selected.price.toLocaleString()}`;
   $("#open").disabled = spinning || state.coins < selected.price;
-  renderInv(); freeLabel(); save();
+  renderInv(); freeLabel(); save(); queueSubmit();
 }
 function freeLabel(){
-  const wait = Math.ceil((60000-(Date.now()-state.lastFree))/1000);
+  if(!state) return;
+  const wait = Math.ceil((120000-(Date.now()-state.lastFree))/1000);
   $("#free").disabled = spinning || wait>0;
-  $("#free").textContent = wait>0 ? `Free coins in ${wait}s` : "Claim 250 free coins";
+  $("#free").textContent = wait>0 ? `Free coins in ${Math.floor(wait/60)}:${String(wait%60).padStart(2,"0")}` : "Claim 250 free coins";
 }
 setInterval(freeLabel,1000);
 
@@ -245,7 +330,7 @@ $("#free").onclick = ()=>{
 function showReveal(it){
   const r = R[it.r];
   $("#reveal").style.setProperty("--c", r.c);
-  $("#reveal").innerHTML = `${ICON[it.i]}<h2>${it.name}</h2><p>${r.n}</p>
+  $("#reveal").innerHTML = `${art(it)}<h2>${it.name}</h2><p>${r.n}</p>
     <div class="row"><button id="keep">Keep</button><button class="alt" id="sellNow">Sell for ${r.v}</button></div>`;
   $("#modal").hidden = false;
   $("#keep").focus();
@@ -281,8 +366,73 @@ $("#open").onclick = ()=>{
 };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").hidden = true; });
 
-$("#strip").innerHTML = Array.from({length:12},()=>card(pick(BOXES[1]))).join("");
-renderBoxes(); updateUI();
+// ---- Leaderboard ----
+// To share the leaderboard between everyone, paste your Firebase Realtime Database URL here
+// (for example "https://your-project-default-rtdb.europe-west1.firebasedatabase.app").
+// Left empty, the leaderboard only works on this device.
+const FIREBASE_URL = "";
+const NAME_OK = /^[A-Za-z0-9_]{3,16}$/;
+const esc = t => String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function worth(){
+  let t = state.coins;
+  for(const id in state.inv){ const it = ITEMS.find(i=>i.id===id); if(it) t += state.inv[id]*R[it.r].v; }
+  return t;
+}
+const found = () => Object.keys(state.inv).filter(k=>state.inv[k]>0).length;
+
+let subT = null, lastSent = "";
+function queueSubmit(){ if(!state) return; clearTimeout(subT); subT = setTimeout(submitScore,1500); }
+async function submitScore(){
+  if(!state || !user) return;
+  const rec = {name:user, score:worth(), found:found(), t:Date.now()};
+  const sig = rec.score+"|"+rec.found; if(sig===lastSent) return; lastSent = sig;
+  try{
+    if(FIREBASE_URL) await fetch(`${FIREBASE_URL}/leaderboard/${user.toLowerCase()}.json`,{method:"PUT",body:JSON.stringify(rec)});
+    else { const all = JSON.parse(localStorage.getItem("mm2lb")||"{}"); all[user.toLowerCase()] = rec; localStorage.setItem("mm2lb",JSON.stringify(all)); }
+    loadBoard();
+  }catch(e){ lastSent = ""; $("#lbStatus").textContent = "Could not reach the leaderboard."; }
+}
+async function loadBoard(){
+  let data = {};
+  try{
+    if(FIREBASE_URL){ const r = await fetch(FIREBASE_URL+"/leaderboard.json"); data = (await r.json()) || {}; }
+    else data = JSON.parse(localStorage.getItem("mm2lb")||"{}");
+  }catch(e){ $("#lbStatus").textContent = "Could not reach the leaderboard."; return; }
+  const rows = Object.values(data).filter(r=>r && typeof r.name==="string" && typeof r.score==="number")
+    .sort((a,b)=>b.score-a.score).slice(0,25);
+  $("#lb").innerHTML = rows.map((r,i)=>`<div class="lr ${r.name.toLowerCase()===user.toLowerCase()?"me":""}"><span>${i+1}</span><b>${esc(r.name)}</b><span class="sub">${(r.found|0)} items</span><span class="price">${Math.round(r.score).toLocaleString()}</span></div>`).join("")
+    || '<p class="empty">No players yet.</p>';
+  $("#lbStatus").textContent = FIREBASE_URL ? "Live leaderboard" : "Local leaderboard (this device only)";
+}
+
+function start(name){
+  user = name;
+  try{ localStorage.setItem("mm2user",name); }catch(e){}
+  state = loadFor(name); lastSent = "";
+  $("#uname").textContent = name;
+  $("#gate").hidden = true;
+  $("#app").hidden = false;
+  window.scrollTo(0,0);
+  $("#strip").innerHTML = Array.from({length:12},()=>card(pick(BOXES[1]))).join("");
+  $("#result").textContent = "Choose a crate below, then open it.";
+  renderBoxes(); updateUI(); submitScore(); loadBoard();
+}
+function enter(){
+  const n = $("#nameIn").value.trim();
+  if(!NAME_OK.test(n)){ $("#nameErr").textContent = "Use 3 to 16 characters: letters, numbers and _ only."; return; }
+  $("#nameErr").textContent = "";
+  try{ start(n); }catch(err){ $("#nameErr").textContent = "Something went wrong: " + err.message; }
+}
+$("#play").onclick = enter;
+$("#nameIn").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); enter(); } });
+$("#switch").onclick = ()=>{ if(spinning) return; $("#nameIn").value = user; $("#cancel").hidden = false; $("#gate").hidden = false; $("#nameIn").focus(); };
+$("#cancel").onclick = ()=>{ $("#gate").hidden = true; };
+$("#lbRefresh").onclick = loadBoard;
+setInterval(()=>{ if(user) loadBoard(); },30000);
+
+let saved = ""; try{ saved = localStorage.getItem("mm2user")||""; }catch(e){}
+if(NAME_OK.test(saved)) start(saved); else $("#nameIn").focus();
 </script>
 </body>
 </html>
