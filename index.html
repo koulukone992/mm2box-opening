@@ -110,6 +110,9 @@ button.sm{padding:6px 12px;font-size:.85rem}
 .tr{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:var(--raise);margin-bottom:8px}
 .tr span{flex:1;min-width:200px}
 #tErr{color:#ff6b7d;min-height:1.3em;margin:8px 0 0}
+#lb{max-height:440px;overflow:auto}
+.search{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--text);font:inherit;margin:8px 0}
+.search:focus{outline:2px solid var(--gold)}
 footer{margin-top:28px;color:var(--mute);font-size:.8rem}
 @media (max-width:520px){h1{font-size:2.3rem}.hint{margin-left:0}}
 </style>
@@ -152,6 +155,7 @@ footer{margin-top:28px;color:var(--mute);font-size:.8rem}
   <section class="panel">
     <div class="head"><h2>Leaderboard</h2><span class="sub" id="lbStatus"></span></div>
     <p class="sub">Ranked by net worth: your coins plus the sell value of your weapons.</p>
+    <input class="search" id="lbSearch" placeholder="Search players" aria-label="Search players" autocomplete="off">
     <div class="lb" id="lb"></div>
     <div class="row"><button class="alt" id="lbRefresh">Refresh</button></div>
   </section>
@@ -412,6 +416,12 @@ async function submitScore(){
     loadBoard();
   }catch(e){ lastSent = ""; $("#lbStatus").textContent = "Could not reach the leaderboard."; }
 }
+function renderLB(){
+  const q = $("#lbSearch").value.trim().toLowerCase();
+  const list = lastRows.map((r,i)=>({r,i})).filter(({r})=>!q || r.name.toLowerCase().includes(q));
+  $("#lb").innerHTML = list.map(({r,i})=>`<div class="lr ${r.name.toLowerCase()===user.toLowerCase()?"me":""}"><span>${i+1}</span><b>${esc(r.name)}</b><span class="sub">${(r.found|0)} items</span><span class="price">${Math.round(r.score).toLocaleString()}</span>${tbtn(r)}</div>`).join("")
+    || `<p class="empty">${q ? "No players match." : "No players yet."}</p>`;
+}
 async function loadBoard(){
   let data = {};
   try{
@@ -419,11 +429,10 @@ async function loadBoard(){
     else data = JSON.parse(localStorage.getItem("mm2lb")||"{}");
   }catch(e){ $("#lbStatus").textContent = "Could not reach the leaderboard."; return; }
   const rows = Object.values(data).filter(r=>r && typeof r.name==="string" && typeof r.score==="number")
-    .sort((a,b)=>b.score-a.score).slice(0,25);
+    .sort((a,b)=>b.score-a.score);
   lastRows = rows;
-  $("#lb").innerHTML = rows.map((r,i)=>`<div class="lr ${r.name.toLowerCase()===user.toLowerCase()?"me":""}"><span>${i+1}</span><b>${esc(r.name)}</b><span class="sub">${(r.found|0)} items</span><span class="price">${Math.round(r.score).toLocaleString()}</span>${tbtn(r)}</div>`).join("")
-    || '<p class="empty">No players yet.</p>';
-  $("#lbStatus").textContent = FIREBASE_URL ? "Live leaderboard" : "Local leaderboard (this device only)";
+  renderLB();
+  $("#lbStatus").textContent = (FIREBASE_URL ? "Live leaderboard" : "Local leaderboard (this device only)") + ` · ${rows.length} player${rows.length===1?"":"s"}`;
 }
 
 // ---- Trading (needs the shared Firebase leaderboard) ----
@@ -541,6 +550,7 @@ $("#nameIn").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefa
 $("#switch").onclick = ()=>{ if(spinning) return; $("#nameIn").value = user; $("#cancel").hidden = false; $("#gate").hidden = false; $("#nameIn").focus(); };
 $("#cancel").onclick = ()=>{ $("#gate").hidden = true; };
 $("#lbRefresh").onclick = loadBoard;
+$("#lbSearch").oninput = renderLB;
 setInterval(()=>{ if(user) loadBoard(); },30000);
 
 let saved = ""; try{ saved = localStorage.getItem("mm2user")||""; }catch(e){}
