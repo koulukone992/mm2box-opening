@@ -4,132 +4,170 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Box Opening – MM2 Fan Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#14101f; --panel:#1f1933; --line:#3a2f5c; --text:#f1ecff; --mute:#9d93bd;
+  color-scheme:dark;
+  --bg:#0e0c13; --panel:#171421; --raise:#1f1b2d; --line:#2e2943; --text:#ece8f5; --mute:#8f87a8;
+  --gold:#f2b84b; --red:#d7263d;
   --common:#8c93a3; --uncommon:#4fb86a; --rare:#3f8cff; --legendary:#b05cff; --godly:#ff9a2e; --ancient:#ff3b5c;
 }
-@media (prefers-color-scheme: light){
-  :root{--bg:#f3f0fa; --panel:#fff; --line:#d7cfee; --text:#1c1730; --mute:#6a6285}
-}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",sans-serif;line-height:1.5}
-.wrap{max-width:960px;margin:0 auto;padding:20px 16px 60px}
-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
-h1{font-family:Impact,"Arial Black",sans-serif;font-size:2.4rem;margin:0;letter-spacing:1px;font-weight:400}
-.sub{color:var(--mute);font-size:.9rem;margin:0}
-.coins{background:var(--panel);border:2px solid var(--godly);border-radius:999px;padding:8px 18px;font-weight:700;font-size:1.1rem}
-button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:10px 16px;background:var(--rare);color:#fff;font-weight:700}
-button:hover:not(:disabled){filter:brightness(1.12)}
-button:disabled{opacity:.45;cursor:not-allowed}
-button:focus-visible{outline:3px solid var(--godly);outline-offset:2px}
-button.alt{background:var(--panel);color:var(--text);border:1px solid var(--line)}
-.boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:22px}
-.box{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;text-align:left;color:var(--text);font-weight:400}
-.box.sel{border-color:var(--godly)}
-.box b{font-size:1.15rem}
-.box .price{color:var(--godly);font-weight:700}
-.box small{display:block;color:var(--mute)}
-.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:22px}
-.reel{position:relative;overflow:hidden;height:130px;border-radius:8px;background:rgba(0,0,0,.18)}
-.reel::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:3px;background:var(--godly);transform:translateX(-50%);z-index:2}
+body{margin:0;color:var(--text);font-family:Barlow,"Segoe UI",sans-serif;line-height:1.45;
+  background:radial-gradient(900px 420px at 50% -80px,#2a1530 0%,transparent 70%),var(--bg);min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:22px 16px 60px}
+h1,h2{font-family:"Bebas Neue",Impact,sans-serif;font-weight:400;letter-spacing:.04em;margin:0}
+h1{font-size:3rem;line-height:1}
+h1 i{font-style:normal;color:var(--red)}
+h2{font-size:1.5rem}
+.sub{color:var(--mute);margin:2px 0 0;font-size:.95rem}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.coins{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 20px 8px 10px;font-size:1.25rem;font-weight:600}
+.coin{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe08a,var(--gold) 60%,#b8801c);box-shadow:inset 0 0 0 3px rgba(0,0,0,.18)}
+button{font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:10px;padding:12px 22px;color:#fff;background:var(--red);transition:transform .1s,filter .15s}
+button:hover:not(:disabled){filter:brightness(1.15)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+button.alt{background:var(--raise);border:1px solid var(--line);color:var(--text)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px}
+
+/* reel */
+.reel{position:relative;height:170px;overflow:hidden;border-radius:10px;
+  background:radial-gradient(ellipse at center,#2b2040 0%,#120f1a 75%);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.mark{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--gold);transform:translateX(-50%);z-index:2;box-shadow:0 0 14px var(--gold)}
 .strip{display:flex;height:100%;will-change:transform}
-.card{flex:0 0 120px;margin:8px 4px;border-radius:8px;border-bottom:5px solid var(--c);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px;font-size:.78rem}
-.card .ic{font-size:2rem;line-height:1;color:var(--c)}
-.card span{color:var(--c);font-weight:700}
-.row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
-#result{min-height:1.6em;font-weight:700}
-h2{font-size:1.2rem;margin:0 0 10px}
-.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.inv .card{margin:0;flex:none;height:120px;position:relative;background:var(--panel);border:1px solid var(--line);border-bottom:5px solid var(--c);cursor:pointer}
-.inv .card:hover{background:rgba(255,255,255,.06)}
-.inv .n{position:absolute;top:4px;right:6px;color:var(--mute)}
-.inv .v{color:var(--mute)}
-.empty{color:var(--mute)}
-footer{margin-top:30px;color:var(--mute);font-size:.8rem}
-@media (prefers-reduced-motion:reduce){.strip{transition:none!important}}
+.card{--c:var(--common);flex:0 0 128px;margin:10px 4px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--c) 32%,transparent),transparent 70%),var(--raise);
+  border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-bottom:4px solid var(--c)}
+.card svg{width:54px;height:54px;color:var(--c);filter:drop-shadow(0 0 8px color-mix(in srgb,var(--c) 70%,transparent))}
+.card b{font-size:.9rem;margin-top:6px}
+.card em{font-style:normal;font-size:.75rem;color:var(--c);font-weight:600}
+.card.win{animation:pop .5s ease-out}
+@keyframes pop{50%{transform:scale(1.12)}}
+.row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center}
+#result{color:var(--mute);min-height:1.4em}
+.hint{margin-left:auto}
+
+/* boxes */
+.boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.box{--c:#6b7a99;display:flex;gap:14px;align-items:center;text-align:left;background:var(--panel);color:var(--text);border:2px solid var(--line);padding:14px;border-radius:14px;font-weight:400}
+.box.sel{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--panel))}
+.crate{flex:none;width:64px;height:50px;border-radius:6px;position:relative;
+  background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#000) 0 10px,color-mix(in srgb,var(--c) 45%,#000) 10px 12px);
+  border:3px solid var(--c);box-shadow:0 0 18px color-mix(in srgb,var(--c) 50%,transparent)}
+.crate::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:14px;margin:-7px 0 0 -6px;border-radius:3px;background:var(--gold)}
+.box strong{font-size:1.1rem;display:block}
+.price{color:var(--gold);font-weight:600}
+.odds{display:flex;gap:4px;margin-top:6px}
+.odds span{height:6px;border-radius:3px;background:var(--c)}
+
+/* collection */
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.bar{height:6px;border-radius:3px;background:var(--raise);margin:8px 0 14px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--red);transition:width .4s}
+.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:10px}
+.inv .card{flex:none;margin:0;height:138px;position:relative;cursor:pointer}
+.inv .card:hover{filter:brightness(1.2)}
+.inv .n{position:absolute;top:6px;right:8px;font-size:.8rem;color:var(--mute)}
+.inv small{color:var(--mute);font-size:.72rem}
+.empty{color:var(--mute);margin:0}
+
+/* reveal */
+#modal{position:fixed;inset:0;background:rgba(6,4,10,.82);display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
+#modal[hidden]{display:none}
+.reveal{--c:var(--common);width:min(340px,100%);text-align:center;padding:28px 20px 22px;border-radius:18px;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--c) 38%,transparent),var(--panel) 70%);border:2px solid var(--c);box-shadow:0 0 60px color-mix(in srgb,var(--c) 45%,transparent)}
+.reveal svg{width:120px;height:120px;color:var(--c);filter:drop-shadow(0 0 18px var(--c))}
+.reveal h2{font-size:2.2rem;margin-top:6px}
+.reveal p{margin:0 0 18px;color:var(--c);font-weight:600}
+.reveal .row{justify-content:center;margin:0}
+footer{margin-top:28px;color:var(--mute);font-size:.8rem}
+@media (max-width:520px){h1{font-size:2.3rem}.hint{margin-left:0}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1>Box Opening</h1>
-      <p class="sub">Open boxes, collect knives and guns, sell what you don't need.</p>
+      <h1>Box <i>Opening</i></h1>
+      <p class="sub">Open crates, build your knife and gun collection.</p>
     </div>
-    <div class="coins" id="coins">0 coins</div>
+    <div class="coins"><span class="coin"></span><span id="coins">0</span></div>
   </header>
 
-  <div class="boxes" id="boxes"></div>
-
-  <div class="stage">
-    <div class="reel"><div class="strip" id="strip"></div></div>
+  <section class="panel">
+    <div class="reel"><div class="mark"></div><div class="strip" id="strip"></div></div>
     <div class="row">
       <button id="open">Open box</button>
       <button class="alt" id="free">Claim 250 free coins</button>
-      <span id="result" aria-live="polite">Pick a box and open it.</span>
+      <span id="result" aria-live="polite">Choose a crate below, then open it.</span>
     </div>
-  </div>
+  </section>
 
-  <div class="stage">
-    <h2>Your collection <span class="sub" id="count"></span></h2>
+  <div class="boxes" id="boxes" style="margin-bottom:20px"></div>
+
+  <section class="panel">
+    <div class="head">
+      <h2>Collection</h2>
+      <span class="sub" id="count"></span>
+    </div>
+    <div class="bar"><i id="prog" style="width:0"></i></div>
     <div class="inv" id="inv"></div>
     <div class="row">
       <button class="alt" id="sellDupes">Sell duplicates</button>
       <button class="alt" id="reset">Reset progress</button>
+      <span class="sub hint">Click an item to sell one copy.</span>
     </div>
-    <p class="sub">Click an item to sell one copy.</p>
-  </div>
+  </section>
 
   <footer>Fan-made game, not affiliated with Roblox or Murder Mystery 2. Coins are fake and have no value.</footer>
 </div>
 
+<div id="modal" hidden>
+  <div class="reveal" id="reveal" role="dialog" aria-live="polite"></div>
+</div>
+
 <script>
 const R = {
-  common:{n:"Common",c:"#8c93a3",v:10},
-  uncommon:{n:"Uncommon",c:"#4fb86a",v:30},
-  rare:{n:"Rare",c:"#3f8cff",v:80},
-  legendary:{n:"Legendary",c:"#b05cff",v:250},
-  godly:{n:"Godly",c:"#ff9a2e",v:1000},
-  ancient:{n:"Ancient",c:"#ff3b5c",v:5000}
+  common:{n:"Common",c:"var(--common)",v:10},
+  uncommon:{n:"Uncommon",c:"var(--uncommon)",v:30},
+  rare:{n:"Rare",c:"var(--rare)",v:80},
+  legendary:{n:"Legendary",c:"var(--legendary)",v:250},
+  godly:{n:"Godly",c:"var(--godly)",v:1000},
+  ancient:{n:"Ancient",c:"var(--ancient)",v:5000}
 };
-const K="🗡️", G="🔫";
+const ICON = {
+  k:'<svg viewBox="0 0 64 64" fill="currentColor"><g transform="rotate(45 32 32)"><path d="M32 2l7 11v26H25V13z"/><rect x="21" y="39" width="22" height="5" rx="1.5" opacity=".75"/><rect x="28" y="44" width="8" height="18" rx="2" opacity=".5"/></g></svg>',
+  g:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M4 16h50v12H38l-4 8v20H20V34h-4l-3-6H4z"/><rect x="42" y="19" width="8" height="3" opacity=".5"/></svg>'
+};
 const ITEMS = [
-  // common
-  {id:"iceblade",name:"Iceblade",r:"common",i:K},{id:"slasher",name:"Slasher",r:"common",i:K},
-  {id:"cleaver",name:"Cleaver",r:"common",i:K},{id:"spider",name:"Spider",r:"common",i:K},
-  {id:"pistol",name:"Pistol",r:"common",i:G},
-  // uncommon
-  {id:"fang",name:"Fang",r:"uncommon",i:K},{id:"ripper",name:"Ripper",r:"uncommon",i:K},
-  {id:"shark",name:"Shark",r:"uncommon",i:G},
-  // rare
-  {id:"hallow",name:"Hallow Blade",r:"rare",i:K},{id:"frost",name:"Frostbite",r:"rare",i:K},
-  {id:"flames",name:"Flames",r:"rare",i:G},
-  // legendary
-  {id:"bloom",name:"Bloom",r:"legendary",i:K},{id:"nebula",name:"Nebula",r:"legendary",i:K},
-  {id:"prism",name:"Prism Gun",r:"legendary",i:G},
-  // godly
-  {id:"harvester",name:"Harvester",r:"godly",i:K},{id:"batwing",name:"Batwing",r:"godly",i:K},
-  {id:"seer",name:"Seer",r:"godly",i:K},{id:"luger",name:"Luger",r:"godly",i:G},
-  // ancient
-  {id:"vampire",name:"Vampire's Edge",r:"ancient",i:K},{id:"eternal",name:"Eternal",r:"ancient",i:K}
+  {id:"iceblade",name:"Iceblade",r:"common",i:"k"},{id:"slasher",name:"Slasher",r:"common",i:"k"},
+  {id:"cleaver",name:"Cleaver",r:"common",i:"k"},{id:"spider",name:"Spider",r:"common",i:"k"},
+  {id:"pistol",name:"Pistol",r:"common",i:"g"},
+  {id:"fang",name:"Fang",r:"uncommon",i:"k"},{id:"ripper",name:"Ripper",r:"uncommon",i:"k"},
+  {id:"shark",name:"Shark",r:"uncommon",i:"g"},
+  {id:"hallow",name:"Hallow Blade",r:"rare",i:"k"},{id:"frost",name:"Frostbite",r:"rare",i:"k"},
+  {id:"flames",name:"Flames",r:"rare",i:"g"},
+  {id:"bloom",name:"Bloom",r:"legendary",i:"k"},{id:"nebula",name:"Nebula",r:"legendary",i:"k"},
+  {id:"prism",name:"Prism Gun",r:"legendary",i:"g"},
+  {id:"harvester",name:"Harvester",r:"godly",i:"k"},{id:"batwing",name:"Batwing",r:"godly",i:"k"},
+  {id:"seer",name:"Seer",r:"godly",i:"k"},{id:"luger",name:"Luger",r:"godly",i:"g"},
+  {id:"vampire",name:"Vampire’s Edge",r:"ancient",i:"k"},{id:"eternal",name:"Eternal",r:"ancient",i:"k"}
 ];
 const BOXES = [
-  {id:"basic",name:"Basic Box",price:100,w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
-  {id:"rare",name:"Rare Box",price:500,w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
-  {id:"godly",name:"Godly Box",price:2500,w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
+  {id:"basic",name:"Basic Crate",price:100,c:"#6b7a99",w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
+  {id:"rare",name:"Rare Crate",price:500,c:"#8a5cff",w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
+  {id:"godly",name:"Godly Crate",price:2500,c:"#ff9a2e",w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
 ];
 
 const $ = s => document.querySelector(s);
-let state = load();
-let selected = BOXES[0];
-let spinning = false;
+let state = load(), selected = BOXES[0], spinning = false;
 
 function load(){
-  try{
-    const s = JSON.parse(localStorage.getItem("mm2box"));
-    if(s && typeof s.coins==="number") return s;
-  }catch(e){}
+  try{ const s = JSON.parse(localStorage.getItem("mm2box")); if(s && typeof s.coins==="number") return s; }catch(e){}
   return {coins:1000, inv:{}, lastFree:0};
 }
 function save(){ try{ localStorage.setItem("mm2box", JSON.stringify(state)); }catch(e){} }
@@ -137,21 +175,17 @@ function save(){ try{ localStorage.setItem("mm2box", JSON.stringify(state)); }ca
 function pick(box){
   const total = Object.values(box.w).reduce((a,b)=>a+b,0);
   let x = Math.random()*total, rar = "common";
-  for(const k in box.w){ x -= box.w[k]; if(x<=0){ rar = k; break; } }
+  for(const k in box.w){ if(box.w[k]<=0) continue; rar = k; x -= box.w[k]; if(x<=0) break; }
   const pool = ITEMS.filter(i=>i.r===rar);
   return pool[Math.floor(Math.random()*pool.length)];
 }
-
-function cardHTML(it){
-  return `<div class="card" style="--c:${R[it.r].c}"><div class="ic">${it.i}</div><b>${it.name}</b><span>${R[it.r].n}</span></div>`;
-}
+const card = (it,cls="") => `<div class="card ${cls}" style="--c:${R[it.r].c}">${ICON[it.i]}<b>${it.name}</b><em>${R[it.r].n}</em></div>`;
 
 function renderBoxes(){
   $("#boxes").innerHTML = BOXES.map(b=>{
-    const top = b.w.ancient>0 ? "Ancient" : "Godly";
-    return `<button class="box ${b===selected?"sel":""}" data-id="${b.id}">
-      <b>${b.name}</b> <span class="price">${b.price} coins</span>
-      <small>Best drop: ${top} (${(b.w.ancient>0?b.w.ancient:b.w.godly)}% chance)</small></button>`;
+    const bars = Object.keys(R).filter(k=>b.w[k]>0).map(k=>`<span style="width:${Math.max(b.w[k]*1.4,5)}px;background:${R[k].c}" title="${R[k].n} ${b.w[k]}%"></span>`).join("");
+    return `<button class="box ${b===selected?"sel":""}" style="--c:${b.c}" data-id="${b.id}">
+      <div class="crate"></div><div><strong>${b.name}</strong><span class="price">${b.price.toLocaleString()} coins</span><div class="odds">${bars}</div></div></button>`;
   }).join("");
   document.querySelectorAll(".box").forEach(el=>el.onclick=()=>{
     if(spinning) return;
@@ -161,92 +195,93 @@ function renderBoxes(){
 }
 
 function renderInv(){
-  const ids = Object.keys(state.inv).filter(k=>state.inv[k]>0);
   const order = Object.keys(R);
-  ids.sort((a,b)=>{
+  const ids = Object.keys(state.inv).filter(k=>state.inv[k]>0).sort((a,b)=>{
     const A=ITEMS.find(i=>i.id===a), B=ITEMS.find(i=>i.id===b);
     return order.indexOf(B.r)-order.indexOf(A.r);
   });
-  $("#count").textContent = ids.length ? `(${ids.length} of ${ITEMS.length} found)` : "";
+  $("#count").textContent = `${ids.length} of ${ITEMS.length} found`;
+  $("#prog").style.width = (ids.length/ITEMS.length*100)+"%";
   $("#inv").innerHTML = ids.length ? ids.map(id=>{
     const it = ITEMS.find(i=>i.id===id);
-    return `<div class="card" data-id="${id}" style="--c:${R[it.r].c}" title="Sell for ${R[it.r].v} coins">
-      <span class="n">x${state.inv[id]}</span><div class="ic">${it.i}</div><b>${it.name}</b>
-      <span>${R[it.r].n}</span><small class="v">Sell ${R[it.r].v}</small></div>`;
-  }).join("") : `<p class="empty">Nothing yet. Open a box to start your collection.</p>`;
+    return `<div class="card" data-id="${id}" style="--c:${R[it.r].c}" title="Sell one for ${R[it.r].v} coins">
+      <span class="n">x${state.inv[id]}</span>${ICON[it.i]}<b>${it.name}</b><em>${R[it.r].n}</em><small>Sell ${R[it.r].v}</small></div>`;
+  }).join("") : `<p class="empty">Nothing yet. Open a crate to start your collection.</p>`;
   document.querySelectorAll("#inv .card").forEach(el=>el.onclick=()=>sell(el.dataset.id,1));
 }
 
 function updateUI(){
-  $("#coins").textContent = state.coins.toLocaleString() + " coins";
-  $("#open").textContent = `Open ${selected.name} (${selected.price})`;
+  $("#coins").textContent = state.coins.toLocaleString();
+  $("#open").textContent = `Open ${selected.name} · ${selected.price.toLocaleString()}`;
   $("#open").disabled = spinning || state.coins < selected.price;
-  $("#free").disabled = spinning;
-  renderInv(); save();
+  renderInv(); freeLabel(); save();
 }
+function freeLabel(){
+  const wait = Math.ceil((60000-(Date.now()-state.lastFree))/1000);
+  $("#free").disabled = spinning || wait>0;
+  $("#free").textContent = wait>0 ? `Free coins in ${wait}s` : "Claim 250 free coins";
+}
+setInterval(freeLabel,1000);
 
-function sell(id, n){
+function sell(id,n){
   if(spinning) return;
-  const it = ITEMS.find(i=>i.id===id);
-  const have = state.inv[id]||0;
-  n = Math.min(n, have);
-  if(n<=0) return;
-  state.inv[id] = have-n;
-  state.coins += R[it.r].v*n;
+  const it = ITEMS.find(i=>i.id===id), have = state.inv[id]||0;
+  n = Math.min(n,have); if(n<=0) return;
+  state.inv[id] = have-n; state.coins += R[it.r].v*n;
   updateUI();
 }
-
-$("#sellDupes").onclick = ()=>{
-  if(spinning) return;
-  for(const id in state.inv){
-    if(state.inv[id]>1) sell(id, state.inv[id]-1);
-  }
-};
+$("#sellDupes").onclick = ()=>{ for(const id in state.inv) if(state.inv[id]>1) sell(id,state.inv[id]-1); };
 $("#reset").onclick = ()=>{
   if(confirm("Erase your coins and collection?")){
     state = {coins:1000, inv:{}, lastFree:0};
-    $("#result").textContent = "Progress reset.";
-    updateUI();
+    $("#result").textContent = "Progress reset."; updateUI();
   }
 };
 $("#free").onclick = ()=>{
-  const wait = 60000 - (Date.now()-state.lastFree);
-  if(wait>0){ $("#result").textContent = `Free coins ready in ${Math.ceil(wait/1000)}s.`; return; }
   state.coins += 250; state.lastFree = Date.now();
-  $("#result").textContent = "Claimed 250 coins. Next claim in 60s.";
-  updateUI();
+  $("#result").textContent = "Claimed 250 coins."; updateUI();
 };
+
+function showReveal(it){
+  const r = R[it.r];
+  $("#reveal").style.setProperty("--c", r.c);
+  $("#reveal").innerHTML = `${ICON[it.i]}<h2>${it.name}</h2><p>${r.n}</p>
+    <div class="row"><button id="keep">Keep</button><button class="alt" id="sellNow">Sell for ${r.v}</button></div>`;
+  $("#modal").hidden = false;
+  $("#keep").focus();
+  $("#keep").onclick = ()=>{ $("#modal").hidden = true; };
+  $("#sellNow").onclick = ()=>{ $("#modal").hidden = true; sell(it.id,1); };
+}
 
 $("#open").onclick = ()=>{
   if(spinning || state.coins < selected.price) return;
-  spinning = true;
-  state.coins -= selected.price;
-  const win = pick(selected);
-  const WIN_AT = 38, TOTAL = 46;
-  const list = [];
-  for(let i=0;i<TOTAL;i++) list.push(i===WIN_AT ? win : pick(selected));
+  spinning = true; state.coins -= selected.price;
+  const win = pick(selected), WIN_AT = 38;
+  const list = Array.from({length:46},(_,i)=> i===WIN_AT ? win : pick(selected));
   const strip = $("#strip");
-  strip.style.transition = "none";
+  strip.innerHTML = list.map((it,i)=>card(it, i===WIN_AT?"w":"")).join("");
   strip.style.transform = "translateX(0)";
-  strip.innerHTML = list.map(cardHTML).join("");
   $("#result").textContent = "Opening...";
   updateUI();
-  const reelW = strip.parentElement.clientWidth;
-  const cardW = 128; // 120 + 2*4 margin
-  const jitter = (Math.random()-0.5)*80;
-  const target = WIN_AT*cardW + cardW/2 - reelW/2 + jitter;
-  void strip.offsetWidth;
-  const dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 5;
-  strip.style.transition = `transform ${dur}s cubic-bezier(.12,.7,.1,1)`;
-  strip.style.transform = `translateX(${-target}px)`;
-  setTimeout(()=>{
+  const cardW = 136, reelW = strip.parentElement.clientWidth;
+  const target = WIN_AT*cardW + cardW/2 - reelW/2 + (Math.random()-0.5)*70;
+  const dur = 5500, t0 = performance.now();
+  const ease = t => 1 - Math.pow(1-t,4);
+  (function frame(now){
+    const t = Math.min((now-t0)/dur,1);
+    strip.style.transform = `translateX(${-target*ease(t)}px)`;
+    if(t<1) return requestAnimationFrame(frame);
+    strip.children[WIN_AT].classList.add("win");
     state.inv[win.id] = (state.inv[win.id]||0)+1;
     spinning = false;
-    $("#result").innerHTML = `You got <span style="color:${R[win.r].c}">${win.name} (${R[win.r].n})</span>!`;
+    $("#result").textContent = `You got ${win.name}.`;
     updateUI();
-  }, dur*1000 + 100);
+    setTimeout(()=>showReveal(win),450);
+  })(t0);
 };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").hidden = true; });
 
+$("#strip").innerHTML = Array.from({length:12},()=>card(pick(BOXES[1]))).join("");
 renderBoxes(); updateUI();
 </script>
 </body>
