@@ -95,11 +95,21 @@ button.sm{padding:6px 12px;font-size:.85rem}
 .gate input{width:100%;margin:14px 0 6px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--text);font:inherit;font-size:1.05rem}
 .gate input:focus{outline:2px solid var(--gold)}
 #nameErr{color:#ff6b7d;min-height:1.3em;font-size:.9rem;margin:0 0 10px}
-.lr{display:grid;grid-template-columns:36px 1fr auto 96px;gap:10px;align-items:center;padding:9px 12px;border-radius:8px}
+.lr{display:grid;grid-template-columns:36px 1fr auto 96px 64px;gap:10px;align-items:center;padding:9px 12px;border-radius:8px}
 .lr:nth-child(odd){background:var(--raise)}
 .lr.me{outline:2px solid var(--gold)}
-.lr span:last-child{text-align:right}
+.lr .price{text-align:right}
 .lr:nth-child(-n+3)>span:first-child{color:var(--gold);font-weight:600}
+#tmodal{position:fixed;inset:0;background:rgba(6,4,10,.82);display:flex;align-items:center;justify-content:center;z-index:15;padding:16px}
+#tmodal[hidden]{display:none}
+.tbox{width:min(720px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.tcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+@media (max-width:600px){.tcols{grid-template-columns:1fr}}
+.tl{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:var(--raise);margin-bottom:6px}
+.tl b{flex:1}.tl button{padding:2px 12px}
+.tr{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:var(--raise);margin-bottom:8px}
+.tr span{flex:1;min-width:200px}
+#tErr{color:#ff6b7d;min-height:1.3em;margin:8px 0 0}
 footer{margin-top:28px;color:var(--mute);font-size:.8rem}
 @media (max-width:520px){h1{font-size:2.3rem}.hint{margin-left:0}}
 </style>
@@ -146,12 +156,20 @@ footer{margin-top:28px;color:var(--mute);font-size:.8rem}
     <div class="row"><button class="alt" id="lbRefresh">Refresh</button></div>
   </section>
 
+  <section class="panel">
+    <div class="head"><h2>Trades</h2><span class="sub" id="trStatus"></span></div>
+    <p class="sub">Press Trade next to a player on the leaderboard to offer a swap.</p>
+    <div id="trList"></div>
+  </section>
+
   <footer>Fan-made game, not affiliated with Roblox or Murder Mystery 2. Coins are fake and have no value.</footer>
 </div>
 
 <div id="modal" hidden>
   <div class="reveal" id="reveal" role="dialog" aria-live="polite"></div>
 </div>
+
+<div id="tmodal" hidden><div class="tbox" id="tbox"></div></div>
 
 <div class="gate" id="gate">
   <div class="gbox" id="gateForm">
@@ -385,8 +403,9 @@ let subT = null, lastSent = "";
 function queueSubmit(){ if(!state) return; clearTimeout(subT); subT = setTimeout(submitScore,1500); }
 async function submitScore(){
   if(!state || !user) return;
-  const rec = {name:user, score:worth(), found:found(), t:Date.now()};
-  const sig = rec.score+"|"+rec.found; if(sig===lastSent) return; lastSent = sig;
+  const inv = {}; for(const k in state.inv) if(state.inv[k]>0) inv[k] = state.inv[k];
+  const rec = {name:user, score:worth(), found:found(), inv, t:Date.now()};
+  const sig = rec.score+"|"+rec.found+"|"+JSON.stringify(inv); if(sig===lastSent) return; lastSent = sig;
   try{
     if(FIREBASE_URL) await fetch(`${FIREBASE_URL}/leaderboard/${user.toLowerCase()}.json`,{method:"PUT",body:JSON.stringify(rec)});
     else { const all = JSON.parse(localStorage.getItem("mm2lb")||"{}"); all[user.toLowerCase()] = rec; localStorage.setItem("mm2lb",JSON.stringify(all)); }
@@ -401,22 +420,115 @@ async function loadBoard(){
   }catch(e){ $("#lbStatus").textContent = "Could not reach the leaderboard."; return; }
   const rows = Object.values(data).filter(r=>r && typeof r.name==="string" && typeof r.score==="number")
     .sort((a,b)=>b.score-a.score).slice(0,25);
-  $("#lb").innerHTML = rows.map((r,i)=>`<div class="lr ${r.name.toLowerCase()===user.toLowerCase()?"me":""}"><span>${i+1}</span><b>${esc(r.name)}</b><span class="sub">${(r.found|0)} items</span><span class="price">${Math.round(r.score).toLocaleString()}</span></div>`).join("")
+  lastRows = rows;
+  $("#lb").innerHTML = rows.map((r,i)=>`<div class="lr ${r.name.toLowerCase()===user.toLowerCase()?"me":""}"><span>${i+1}</span><b>${esc(r.name)}</b><span class="sub">${(r.found|0)} items</span><span class="price">${Math.round(r.score).toLocaleString()}</span>${tbtn(r)}</div>`).join("")
     || '<p class="empty">No players yet.</p>';
   $("#lbStatus").textContent = FIREBASE_URL ? "Live leaderboard" : "Local leaderboard (this device only)";
 }
 
+// ---- Trading (needs the shared Firebase leaderboard) ----
+let lastRows = [], tpeer = null, tgive = {}, task = {};
+const itemOf = id => ITEMS.find(i=>i.id===id);
+function sane(o){ const r = {}; for(const k in (o||{})){ const n = Math.floor(+o[k]); if(itemOf(k) && n>0 && n<=99) r[k] = n; } return r; }
+const fmt = o => Object.entries(sane(o)).map(([k,v])=>`${v}× ${itemOf(k).name}`).join(", ") || "nothing";
+const tbtn = r => (FIREBASE_URL && r.name.toLowerCase()!==user.toLowerCase()) ? `<button class="alt sm" data-t="${esc(r.name)}">Trade</button>` : "<span></span>";
+const turl = id => `${FIREBASE_URL}/trades/${id}.json`;
+
+$("#lb").onclick = e=>{
+  const b = e.target.closest("button[data-t]"); if(!b) return;
+  const rec = lastRows.find(r=>r.name===b.dataset.t); if(!rec) return;
+  tpeer = rec; tgive = {}; task = {}; renderTrade(); $("#tmodal").hidden = false;
+};
+function tlist(sel, own, side){
+  const ids = Object.keys(sane(own));
+  return ids.map(id=>{ const it = itemOf(id);
+    return `<div class="tl"><b style="color:${R[it.r].c}">${it.name}</b><span class="sub">x${own[id]}</span>
+      <button class="alt" data-s="${side}" data-id="${id}" data-d="-1" aria-label="Less">−</button><span>${sel[id]||0}</span>
+      <button class="alt" data-s="${side}" data-id="${id}" data-d="1" aria-label="More">+</button></div>`; }).join("") || '<p class="empty">No items.</p>';
+}
+function renderTrade(){
+  $("#tbox").innerHTML = `<h2>Trade with ${esc(tpeer.name)}</h2>
+    <div class="tcols"><div><b>You give</b>${tlist(tgive,state.inv,"g")}</div><div><b>You ask for</b>${tlist(task,tpeer.inv,"a")}</div></div>
+    <p id="tErr" aria-live="polite"></p>
+    <div class="row" style="margin-top:8px"><button id="tSend">Send offer</button><button class="alt" id="tClose">Cancel</button></div>
+    <p class="sub">Your offered items are held until they answer. Cancel or a decline returns them.</p>`;
+}
+$("#tbox").onclick = e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.id==="tClose"){ $("#tmodal").hidden = true; return; }
+  if(b.id==="tSend"){ sendTrade(); return; }
+  if(b.dataset.id){
+    const sel = b.dataset.s==="g" ? tgive : task, own = b.dataset.s==="g" ? state.inv : (tpeer.inv||{});
+    sel[b.dataset.id] = Math.max(0, Math.min(own[b.dataset.id]||0, (sel[b.dataset.id]||0)+(+b.dataset.d)));
+    renderTrade();
+  }
+};
+const picked = o => { const r = {}; for(const k in o) if(o[k]>0) r[k] = o[k]; return r; };
+async function sendTrade(){
+  const g = picked(tgive), w = picked(task), err = m=>{ $("#tErr").textContent = m; };
+  if(!Object.keys(g).length || !Object.keys(w).length) return err("Pick at least one item on each side.");
+  for(const k in g) if((state.inv[k]||0) < g[k]) return err("You don't have enough of that item.");
+  const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  try{
+    const r = await fetch(turl(id),{method:"PUT",body:JSON.stringify({from:user,to:tpeer.name,give:g,want:w,status:"pending",t:Date.now()})});
+    if(!r.ok) throw 0;
+  }catch(e){ return err("Could not send the offer. Check the Firebase rules."); }
+  for(const k in g) state.inv[k] -= g[k];
+  $("#tmodal").hidden = true; $("#trStatus").textContent = "Offer sent."; updateUI(); loadTrades();
+}
+async function settle(id,t){
+  if(state.done[id]) return; state.done[id] = true;
+  const back = sane(t.status==="accepted" ? t.want : t.give);
+  for(const k in back) state.inv[k] = (state.inv[k]||0)+back[k];
+  updateUI();
+  fetch(turl(id),{method:"DELETE"}).catch(()=>{});
+  $("#trStatus").textContent = t.status==="accepted" ? `${t.to} accepted your trade.` : `${t.to} did not accept. Your items are back.`;
+}
+async function loadTrades(){
+  if(!user) return;
+  if(!FIREBASE_URL){ $("#trStatus").textContent = "Trading needs the shared leaderboard."; return; }
+  let all; try{ all = (await (await fetch(FIREBASE_URL+"/trades.json")).json()) || {}; }catch(e){ return; }
+  const me = user.toLowerCase(); let html = "";
+  for(const id in all){
+    const t = all[id]; if(!t || typeof t.from!=="string" || typeof t.to!=="string") continue;
+    const mine = t.from.toLowerCase()===me, forMe = t.to.toLowerCase()===me;
+    if(mine && t.status!=="pending"){ await settle(id,t); continue; }
+    if(t.status!=="pending") continue;
+    if(forMe) html += `<div class="tr"><span><b>${esc(t.from)}</b> gives ${fmt(t.give)} for your ${fmt(t.want)}</span><button data-a="yes" data-id="${id}">Accept</button><button class="alt" data-a="no" data-id="${id}">Decline</button></div>`;
+    else if(mine) html += `<div class="tr"><span>You offered ${fmt(t.give)} to <b>${esc(t.to)}</b> for ${fmt(t.want)}</span><button class="alt" data-a="cancel" data-id="${id}">Cancel</button></div>`;
+  }
+  $("#trList").innerHTML = html || '<p class="empty">No open offers.</p>';
+}
+$("#trList").onclick = async e=>{
+  const b = e.target.closest("button[data-a]"); if(!b) return;
+  const id = b.dataset.id, a = b.dataset.a;
+  let t; try{ t = await (await fetch(turl(id))).json(); }catch(err){ return; }
+  if(!t || t.status!=="pending"){ loadTrades(); return; }
+  const want = sane(t.want), give = sane(t.give);
+  if(a==="yes") for(const k in want) if((state.inv[k]||0) < want[k]){ $("#trStatus").textContent = "You no longer have the items they asked for."; return; }
+  const status = a==="yes" ? "accepted" : a==="no" ? "declined" : "cancelled";
+  try{ const r = await fetch(turl(id),{method:"PATCH",body:JSON.stringify({status})}); if(!r.ok) throw 0; }
+  catch(err){ $("#trStatus").textContent = "Could not reach the server."; return; }
+  if(a==="yes"){
+    for(const k in want) state.inv[k] -= want[k];
+    for(const k in give) state.inv[k] = (state.inv[k]||0)+give[k];
+    updateUI(); $("#trStatus").textContent = "Trade complete.";
+  }
+  loadTrades();
+};
+setInterval(loadTrades,10000);
+
 function start(name){
   user = name;
   try{ localStorage.setItem("mm2user",name); }catch(e){}
-  state = loadFor(name); lastSent = "";
+  state = loadFor(name); state.done = state.done || {}; lastSent = "";
   $("#uname").textContent = name;
   $("#gate").hidden = true;
   $("#app").hidden = false;
   window.scrollTo(0,0);
   $("#strip").innerHTML = Array.from({length:12},()=>card(pick(BOXES[1]))).join("");
   $("#result").textContent = "Choose a crate below, then open it.";
-  renderBoxes(); updateUI(); submitScore(); loadBoard();
+  renderBoxes(); updateUI(); submitScore(); loadBoard(); loadTrades();
 }
 function enter(){
   const n = $("#nameIn").value.trim();
