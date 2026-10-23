@@ -396,7 +396,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").hidden
 // Left empty, the leaderboard only works in this one browser.
 // Setup: console.firebase.google.com > create project > Build > Realtime Database > create (test mode),
 // then copy the database URL (no slash at the end) into the quotes below and set the rules from the setup notes.
-const FIREBASE_URL = "";
+const FIREBASE_URL = "https://mm2-homma-default-rtdb.europe-west1.firebasedatabase.app";
 const NAME_OK = /^[A-Za-z0-9_]{3,16}$/;
 const esc = t => String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
