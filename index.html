@@ -132,12 +132,12 @@ footer{margin-top:28px;color:var(--mute);font-size:.8rem}
 
 <script>
 const R = {
-  common:{n:"Common",c:"var(--common)",v:10},
-  uncommon:{n:"Uncommon",c:"var(--uncommon)",v:30},
-  rare:{n:"Rare",c:"var(--rare)",v:80},
-  legendary:{n:"Legendary",c:"var(--legendary)",v:250},
-  godly:{n:"Godly",c:"var(--godly)",v:1000},
-  ancient:{n:"Ancient",c:"var(--ancient)",v:5000}
+  common:{n:"Common",c:"var(--common)",v:20},
+  uncommon:{n:"Uncommon",c:"var(--uncommon)",v:50},
+  rare:{n:"Rare",c:"var(--rare)",v:120},
+  legendary:{n:"Legendary",c:"var(--legendary)",v:400},
+  godly:{n:"Godly",c:"var(--godly)",v:1500},
+  ancient:{n:"Ancient",c:"var(--ancient)",v:7500}
 };
 const ICON = {
   k:'<svg viewBox="0 0 64 64" fill="currentColor"><g transform="rotate(45 32 32)"><path d="M32 2l7 11v26H25V13z"/><rect x="21" y="39" width="22" height="5" rx="1.5" opacity=".75"/><rect x="28" y="44" width="8" height="18" rx="2" opacity=".5"/></g></svg>',
@@ -158,9 +158,9 @@ const ITEMS = [
   {id:"vampire",name:"Vampire’s Edge",r:"ancient",i:"k"},{id:"eternal",name:"Eternal",r:"ancient",i:"k"}
 ];
 const BOXES = [
-  {id:"basic",name:"Basic Crate",price:100,c:"#6b7a99",w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
-  {id:"rare",name:"Rare Crate",price:500,c:"#8a5cff",w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
-  {id:"godly",name:"Godly Crate",price:2500,c:"#ff9a2e",w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
+  {id:"basic",name:"Basic Crate",price:50,c:"#6b7a99",w:{common:55,uncommon:28,rare:13,legendary:3.5,godly:0.5,ancient:0}},
+  {id:"rare",name:"Rare Crate",price:175,c:"#8a5cff",w:{common:20,uncommon:30,rare:30,legendary:15,godly:4.7,ancient:0.3}},
+  {id:"godly",name:"Godly Crate",price:600,c:"#ff9a2e",w:{common:0,uncommon:10,rare:30,legendary:35,godly:23,ancient:2}}
 ];
 
 const $ = s => document.querySelector(s);
